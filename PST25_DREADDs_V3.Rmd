@@ -31,36 +31,36 @@ library(gridExtra)
 library(readxl)
 library(multcomp)
 
-
-
-
-if (Sys.info()["nodename"] == "PC_MANU_ATIV9"){
-  path <-   "C://Users/E Procyk/Dropbox/Main_drop/R/Diverse_stuff/PST2020/"
-  pathout <- "C://Users/eprocyk/Dropbox/Main_drop/R/Diverse_stuff/PST2020/"
+#if (Sys.info()["nodename"] == "PC_MANU_ATIV9"){
+  #path <-   "C://Users/E Procyk/Dropbox/Main_drop/R/Diverse_stuff/PST2020/"
+  #pathout <- "C://Users/eprocyk/Dropbox/Main_drop/R/Diverse_stuff/PST2020/"
   
-}else if(Sys.info()["nodename"] =="DESKTOP-MANU"){
-   path <-  "C://Users/E Procyk/Dropbox/Main_drop/R/Diverse_stuff/PST2020/"
-   pathout <- "C://Users/E Procyk/Dropbox/Main_drop/R/Diverse_stuff/PST2020/"
+#}else if(Sys.info()["nodename"] =="DESKTOP-MANU"){
+   #path <-  "C://Users/E Procyk/Dropbox/Main_drop/R/Diverse_stuff/PST2020/"
+   #pathout <- "C://Users/E Procyk/Dropbox/Main_drop/R/Diverse_stuff/PST2020/"
 
-}else if(Sys.info()["nodename"] =="DESKTOP-1OC9B4K"){
-   path <-  "C://Users/eproc/Dropbox/Main_drop/R/Diverse_stuff/PST2020/"
-   pathout <- "C://Users/eproc/Dropbox/Main_drop/R/Diverse_stuff/PST2020/"
+#}else if(Sys.info()["nodename"] =="DESKTOP-1OC9B4K"){
+   #path <-  "C://Users/eproc/Dropbox/Main_drop/R/Diverse_stuff/PST2020/"
+   #pathout <- "C://Users/eproc/Dropbox/Main_drop/R/Diverse_stuff/PST2020/"
    
-}else if(Sys.info()["nodename"] =="CREW-Office-iMac.local"){
-   path <-  "/Users/charliewilson/Dropbox/Brain Lyon/DREADDPath MRI and DREADD study/PST25 Analysis/"
-   pathout <- "/Users/charliewilson/Dropbox/Brain Lyon/DREADDPath MRI and DREADD study/PST25 Analysis/"
+#}else if(Sys.info()["nodename"] =="CREW-Office-iMac.local"){
+   #path <-  "/Users/charliewilson/Dropbox/Brain Lyon/DREADDPath MRI and DREADD study/PST25 Analysis/"
+   #pathout <- "/Users/charliewilson/Dropbox/Brain Lyon/DREADDPath MRI and DREADD study/PST25 Analysis/"
    
-}else{
-  path  <-  "C://Users/E Procyk/Dropbox/Main_drop/R/Diverse_stuff/PST2020/"
-}
+#}else{
+  #path  <-  "C://Users/E Procyk/Dropbox/Main_drop/R/Diverse_stuff/PST2020/"
+#}
+#data4R <- read.delim(paste0(path,"data4R_040521.txt"))
+#map <- read.delim(paste0(path,"xy_loc.txt"))  # coordinate file for the 5x5 table
+#session_type <- read.table(paste0(path,"session_type.txt"), header=TRUE) # session type formatted from the GoogleDrive file updated by Clemence
 
 
 # load data
-#Ddata <- read_excel("C://Users/E Procyk/Dropbox/Main_drop/R/Diverse_stuff/PST2020/data.xlsx")
+data4R <- read.delim("data4R_040521.txt")
+map <- read.delim("xy_loc.txt")  # coordinate file for the 5x5 table
+session_type <- read.table("session_type.txt", header=TRUE) # session type formatted from the GoogleDrive file updated by Clemence
 
-data4R <- read.delim(paste0(path,"data4R_040521.txt"))
-map <- read.delim(paste0(path,"xy_loc.txt"))  # coordinate file for the 5x5 table
-session_type <- read.table(paste0(path,"session_type.txt"), header=TRUE) # session type formatted from the GoogleDrive file updated by Clemence
+
 ```
 
 
