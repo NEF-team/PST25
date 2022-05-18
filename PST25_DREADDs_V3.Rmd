@@ -61,6 +61,8 @@ map <- read.delim("xy_loc.txt")  # coordinate file for the 5x5 table
 session_type <- read.table("session_type.txt", header=TRUE) # session type formatted from the GoogleDrive file updated by Clemence
 A<-4
 B<-5
+C<-26
+D<-42
 
 
 ```
