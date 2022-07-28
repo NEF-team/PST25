@@ -11,7 +11,7 @@ output:
   html_document:
     toc: yes
 editor_options: 
-  chunk_output_type: console
+  chunk_output_type: inline
 ---
 
 
@@ -536,17 +536,24 @@ b25 <- ggplot(subset(agg.data4B.sub, Injection != "DCZ"), aes(x=as.factor(choice
     facet_grid(singe~portes)+
     scale_fill_manual(values=c("chartreuse3","chocolate","dodgerblue1"))+
     ggtitle("25 first trials")+
-  theme(axis.text.x = element_text(color = "grey20", size = 12), 
-        axis.title.y =element_text( "average trial nb"))+ theme(legend.position = "bottom")
+    xlab("Choice type") + ylab("Average trial number") +
+    theme(axis.text.x = element_text(color = "grey20", size = 12), 
+       axis.text.y = element_text(color = "grey20", size = 12))+ theme(legend.position = "bottom")
+
+#Problem is in the "theme"
+
 
 a25 <-ggplot(subset(agg.data4B.sublast, Injection != "DCZ"), aes(x=as.factor(choice_type),y=trial   , fill=choice_type))+
     geom_bar(position = "dodge", stat = "summary")+
     facet_grid(singe~portes)+
     scale_fill_manual(values=c("chartreuse3","chocolate","dodgerblue1"))+
     ggtitle("AFTER 25th trial")+
+   xlab("Choice type") + ylab("Average trial number") +
   theme(axis.text.x = element_text(color = "grey20", size = 12), 
-        axis.title.y =element_text( "average trial nb"))+ theme(legend.position = "bottom")
+       axis.title.y =element_text(color = "grey20", size = 12))+ theme(legend.position = "bottom")
   
+
+
 grid.arrange(b25,a25,ncol=2)
 ```
 
