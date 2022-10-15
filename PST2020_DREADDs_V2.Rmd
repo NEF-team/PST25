@@ -3,12 +3,12 @@ title: "DREADDs PST2020"
 author: "EP"
 date: "03/02/2021"
 output: 
-  html_document:
+  pdf_document:
+    number_sections: yes
     toc: yes
   word_document:
     toc: yes
-  pdf_document:
-    number_sections: yes
+  html_document:
     toc: yes
 editor_options: 
   chunk_output_type: inline
@@ -69,7 +69,7 @@ The animals were tested everyday with different versions of the apparatus.
 The testing was done in animal housing using the 1st design realized by JS:
 
 ```{r pressure, echo=FALSE,fig.align="center", fig.cap="PST 2020 board", out.width = '70%'}
-knitr::include_graphics(paste0(path,"Setup_JS2020.png"))
+#knitr::include_graphics(paste0(path,"Setup_JS2020.png"))
 ```
 On this board the 25 locations are numbered from *1* to *25* from the *upper left* corner to the *lower right* corner, going from left to right.
 
@@ -208,21 +208,22 @@ do <-ggplot(subset(DONUT,DONUT$choice_pos>0 & DONUT$choice<99 & session==do.sess
  
  grid.arrange(ho,do,ncol=2)
  
-yu.session = 3
-ggplot(subset(YURI,YURI$choice_pos>0 & YURI$choice<99 & session==yu.session), aes(x=trial_nb,y=choice, color="Choice"))+
-  geom_point()+  geom_smooth(method='lm',colour='dimgray') +  geom_line()+
-  scale_colour_discrete(name = "Choices", labels = c("Repeat", "Choice"))+
-  geom_line(data=subset(YURI,YURI$choice_pos<0 & abs(YURI$choice)<99 & session==yu.session),aes(x = trial_nb,y=choice),colour='dodgerblue1', alpha=.5)+
-  geom_smooth(data=subset(YURI,YURI$choice_pos<0 & abs(YURI$choice)<99 & session==yu.session),method='lm', se=FALSE,colour='dodgerblue1')+
-  geom_point(data=subset(YURI,YURI$choice_pos<0 & abs(YURI$choice)<99 & session==yu.session),aes(x = trial_nb,y=choice,color="Repeat"))+
- geom_point(data=subset(YURI, YURI$choice>90 & session==yu.session),aes(x = trial_nb, y=choice/100, color="Miss"))+
-  geom_hline(yintercept=0)+
-  labs(x = "trial in session",
-       y = "target chosen",
-       color = "Legend")+
-  scale_colour_manual(values=c("chartreuse3","chocolate","dodgerblue1"))+
-  facet_grid(condition ~ .)+
-  ggtitle(paste0("YURI sample session #",yu.session))
+# YURI excluded for the current analysis for DREADDPath
+# yu.session = 3
+# ggplot(subset(YURI,YURI$choice_pos>0 & YURI$choice<99 & session==yu.session), aes(x=trial_nb,y=choice, color="Choice"))+
+#   geom_point()+  geom_smooth(method='lm',colour='dimgray') +  geom_line()+
+#   scale_colour_discrete(name = "Choices", labels = c("Repeat", "Choice"))+
+#   geom_line(data=subset(YURI,YURI$choice_pos<0 & abs(YURI$choice)<99 & session==yu.session),aes(x = trial_nb,y=choice),colour='dodgerblue1', alpha=.5)+
+#   geom_smooth(data=subset(YURI,YURI$choice_pos<0 & abs(YURI$choice)<99 & session==yu.session),method='lm', se=FALSE,colour='dodgerblue1')+
+#   geom_point(data=subset(YURI,YURI$choice_pos<0 & abs(YURI$choice)<99 & session==yu.session),aes(x = trial_nb,y=choice,color="Repeat"))+
+#  geom_point(data=subset(YURI, YURI$choice>90 & session==yu.session),aes(x = trial_nb, y=choice/100, color="Miss"))+
+#   geom_hline(yintercept=0)+
+#   labs(x = "trial in session",
+#        y = "target chosen",
+#        color = "Legend")+
+#   scale_colour_manual(values=c("chartreuse3","chocolate","dodgerblue1"))+
+#   facet_grid(condition ~ .)+
+#   ggtitle(paste0("YURI sample session #",yu.session))
 
  
 
@@ -545,22 +546,30 @@ data4B.sub.last$trial <- 1
 agg.data4B.sublast <- aggregate(trial ~ Injection + choice_type+ session + portes+ singe, data=data4B.sub.last, sum)
 
   
+  
 b25 <- ggplot(subset(agg.data4B.sub, Injection != "DCZ"), aes(x=as.factor(choice_type),y=trial   , fill=choice_type))+
     geom_bar(position = "dodge", stat = "summary")+
     facet_grid(singe~portes)+
     scale_fill_manual(values=c("chartreuse3","chocolate","dodgerblue1"))+
     ggtitle("25 first trials")+
-  theme(axis.text.x = element_text(color = "grey20", size = 12), 
-        axis.title.y =element_text( "average trial nb"))+ theme(legend.position = "bottom")
+    xlab("Choice type") + ylab("Average trial number") +
+    theme(axis.text.x = element_text(color = "grey20", size = 12), 
+       axis.text.y = element_text(color = "grey20", size = 12))+ theme(legend.position = "bottom")
+
+#Problem is in the "theme"
+
 
 a25 <-ggplot(subset(agg.data4B.sublast, Injection != "DCZ"), aes(x=as.factor(choice_type),y=trial   , fill=choice_type))+
     geom_bar(position = "dodge", stat = "summary")+
     facet_grid(singe~portes)+
     scale_fill_manual(values=c("chartreuse3","chocolate","dodgerblue1"))+
     ggtitle("AFTER 25th trial")+
+   xlab("Choice type") + ylab("Average trial number") +
   theme(axis.text.x = element_text(color = "grey20", size = 12), 
-        axis.title.y =element_text( "average trial nb"))+ theme(legend.position = "bottom")
+       axis.title.y =element_text(color = "grey20", size = 12))+ theme(legend.position = "bottom")
   
+
+
 grid.arrange(b25,a25,ncol=2)
 ```
 
