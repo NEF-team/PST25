@@ -676,7 +676,7 @@ We will also go through some more measures:
 ```{r subtest, echo=FALSE,message=FALSE, warning=FALSE,fig.width=12, fig.height=8}
 
 data4B <- subset(data4B, Injection=='DCZ'| Injection=="sham")  
-data4B$Injection <- factor( data4B$Injection, levels = c("sham","DCZ"))
+data4B$Injection <- factor( data4B$Injection, levels = c("Vehicle","DCZ"))
 data4B$singe <- factor( data4B$singe, levels = c("Homer","Donut"))
 data4B$trial <- 1
 
@@ -908,6 +908,12 @@ ggplot(agg.data4B, aes(x=as.factor(Injection), y=trial   , fill=choice_type))+
     ggtitle("All trials")+
   theme(axis.text.x = element_text(color = "grey20", size = 12))
   
+ggplot(agg.data4B, aes(x=as.factor(Injection), y=trial   , fill=choice_type))+
+    geom_boxplot()+
+    facet_grid(singe~portes)+
+    scale_fill_manual(values=c("chartreuse3","chocolate","dodgerblue1"))+
+    ggtitle("All trials")+
+  theme(axis.text.x = element_text(color = "grey20", size = 12))
 
 ggplot(agg.data4B, aes(x=as.factor(choice_type), y=trial   , fill=Injection))+
     geom_boxplot()+
@@ -928,6 +934,104 @@ summary(Don.chtype.glm)
 The statistics show that there is no effect of the condition (Injection) for Homer but there is a significant increase of repeat for Donut. This is when we do not take PORTES into account. If Portes is used as an interacting fixed effect the effect size for Repeats in Donut goes down (p=0.052).
   
 ###stats 25 trials  
+
+Same analysis for the first 25 trials
+
+```{r counts, echo=FALSE,message=FALSE, fig.cap="Summary 25 trials",warning=FALSE,fig.width=15, fig.height=8}
+data4B.sub <- subset(data4B.sub, Injection=='DCZ'| Injection=="sham")  
+agg.data4B.sub <- aggregate(trial ~ Injection + choice_type + session + portes + singe, data=data4B.sub, sum)
+
+agg.data4B.sub$Injection <- factor(agg.data4B.sub$Injection, levels = c("0", "no", "sham","DCZ"))
+
+
+ggplot(agg.data4B.sub, aes(x=as.factor(Injection), y=trial   , fill=choice_type))+
+    geom_bar(position = "dodge", stat = "summary")+
+    facet_grid(singe~portes)+
+    scale_fill_manual(values=c("chartreuse3","chocolate","dodgerblue1"))+
+    ggtitle("First 25 trials")+
+  theme(axis.text.x = element_text(color = "grey20", size = 12))
+  
+
+ggplot(agg.data4B.sub, aes(x=as.factor(choice_type), y=trial   , fill=Injection))+
+    geom_boxplot()+
+    facet_grid(singe~portes)+
+    scale_fill_manual(values=c("grey","chartreuse3","dodgerblue1"))+
+    ggtitle("First 25 trials")+
+  theme(axis.text.x = element_text(color = "grey20", size = 12))
+  
+
+hom.chtype.glm <- glm(trial ~ Injection * choice_type , family = "poisson", data=subset(agg.data4B.sub, singe=="Homer" & choice_type != "Correct"))
+summary(hom.chtype.glm)
+
+Don.chtype.glm <- glm(trial ~ Injection * choice_type , family = "poisson", data=subset(agg.data4B.sub, singe=="Donut" & choice_type != "Correct"))
+summary(Don.chtype.glm)
+
+#Presentation fig CW
+
+
+g1 <- ggplot(subset(agg.data4B.sub, singe=="Donut" & portes != "clear"), aes(x=as.factor(choice_type), y=trial   , fill=Injection))+
+    geom_boxplot()+
+    scale_fill_manual(values=c("grey","chartreuse3"), labels = c("Vehicle", "DCZ"))+
+    #ggtitle("First 25 trials")+
+  theme(axis.text.x = element_text(color = "grey20") , axis.title.x = element_blank()) +
+  theme(text = element_text(size = 50))   
+
+g2 <- ggplot(subset(agg.data4B.sub, singe=="Homer" & portes != "clear"), aes(x=as.factor(choice_type), y=trial   , fill=Injection))+
+    geom_boxplot()+
+    scale_fill_manual(values=c("grey","chartreuse3"),labels = c("Vehicle", "DCZ"))+
+    #ggtitle("First 25 trials")+
+  theme(axis.text.x = element_text(color = "grey20"), axis.title.x = element_blank()) +
+  theme(text = element_text(size = 50)) 
+
+  
+grid.arrange(g1,g2, ncol=2)
+
+
+  
+```
+###stats AFTER 25 trials  
+
+Same analysis for the first 25 trials
+
+```{r counts, echo=FALSE,message=FALSE, fig.cap="Summary 25 trials",warning=FALSE,fig.width=15, fig.height=8}
+data4B.sub.last <- subset(data4B.sub.last, Injection=='DCZ'| Injection=="sham")  
+agg.data4B.sub.last <- aggregate(trial ~ Injection + choice_type + session + portes + singe, data=data4B.sub.last, sum)
+
+agg.data4B.sub.last$Injection <- factor(agg.data4B.sub.last$Injection, levels = c("0", "no", "sham","DCZ"))
+
+
+ggplot(agg.data4B.sub.last, aes(x=as.factor(Injection), y=trial   , fill=choice_type))+
+    geom_bar(position = "dodge", stat = "summary")+
+    facet_grid(singe~portes)+
+    scale_fill_manual(values=c("chartreuse3","chocolate","dodgerblue1"))+
+    ggtitle("After 25 trials")+
+  theme(axis.text.x = element_text(color = "grey20", size = 12))
+  
+
+ggplot(agg.data4B.sub.last, aes(x=as.factor(choice_type), y=trial   , fill=Injection))+
+    geom_boxplot()+
+    facet_grid(singe~portes)+
+    scale_fill_manual(values=c("grey","chartreuse3","dodgerblue1"))+
+    ggtitle("After 25 trials")+
+  theme(axis.text.x = element_text(color = "grey20", size = 12))
+  
+
+hom.chtype.glm <- glm(trial ~ Injection * choice_type , family = "poisson", data=subset(agg.data4B.sub.last, singe=="Homer" & choice_type != "Correct" & portes != "clear"))
+summary(hom.chtype.glm)
+
+Don.chtype.glm <- glm(trial ~ Injection * choice_type , family = "poisson", data=subset(agg.data4B.sub.last, singe=="Donut" & choice_type != "Correct" & portes != "clear"))
+summary(Don.chtype.glm)
+
+hom.rep.glm <- glm(trial ~ Injection , family = "poisson", data=subset(agg.data4B.sub.last, singe=="Homer" & choice_type == "Repeat" & portes != "clear"))
+summary(hom.chtype.glm)
+
+Don.rep.glm <- glm(trial ~ Injection , family = "poisson", data=subset(agg.data4B.sub.last, singe=="Donut" & choice_type == "Repeat" & portes != "clear"))
+summary(Don.chtype.glm)
+  
+```
+
+
+
 
 
 ###stats spatial strategy
