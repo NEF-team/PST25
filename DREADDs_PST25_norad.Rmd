@@ -1,0 +1,1018 @@
+---
+title: "DREADDs PST25 Norad"
+author: "ClemenceG"
+date: "2023-03-13"
+output: pdf_document:
+    number_sections: yes
+    toc: yes
+  word_document:
+    toc: yes
+  html_document:
+    toc: yes
+editor_options: 
+  chunk_output_type: console
+---
+
+PST25 behavioral script adapted from PST2020_DREADDs_HoDo.Rmd by Clemence Gandaux starting 13/03/2023
+
+```{r load, echo=FALSE, warning=FALSE, message=FALSE}
+#load packages 
+library(ggplot2)
+library(gridExtra)
+library(readxl)
+library(multcomp) 
+library(dplyr)
+
+# load data (correct if using the Rproj and Github version)
+data4R <- read.delim("data4R_pst25_norad.txt", header = F)
+data4R <- rename(data4R, c("trial_nb"="V1", "singe"="V2", "session"="V3", "choice"= "V4"));
+
+
+map <- read.delim("xy_loc.txt")  # coordinate file for the 5x5 table
+session_type <- read.table("session_type_norad.txt", header=TRUE) # 
+
+```
+
+# Introduction
+
+**A behavioral study of foraging**
+
+The data were acquired by CG and scored by JS. Start of analysing by CG the 13/03/2023
+
+
+```{r load, echo=FALSE, warning=FALSE, message=FALSE}
+#Add conumn "condition" but we first need to rename sess type in sesstype folder.
+
+data4R_sess <- data4R %>%
+  group_by(session)%>%
+  summarise(session=unique(session), singe=unique(singe))
+  
+session_type_sess <-session_type%>%
+  arrange(session)
+
+session_type$condition[session_type$portes=="blue"] <- 1
+session_type$condition[session_type$portes=="clear"] <- 0
+
+session_type$singe[session_type$singe=="Oscar"] <- 1
+session_type$singe[session_type$singe=="Violette"] <- 2
+
+
+data4R= merge(data4R, session_type, by.x=c("session", "singe"), by.y=c("session", "singe")) 
+
+
+# first thin g is to remove the 99 from the data and save that in a second data frame
+
+data4R_99 <- data4R
+data4R <- subset(data4R, data4R$choice!=99)
+
+data4R <- subset(data4R, data4R$Injection!="no") #enleve les sessions sans injection 
+
+
+data4R$choice_pos <- data4R$choice/abs(data4R$choice)
+
+data4R$singe <- factor(data4R$singe)
+levels(data4R$singe) <- list(Oscar="1",Violette="2")
+data4R <- data4R[data4R$choice!=0,]
+
+data4R$condition <- as.factor(data4R$condition)
+levels(data4R$condition) <- list(CONTROL="0", TEST= "1")
+
+#data4R$portes <-  factor(data4R$condition, levels= c("clear","blue"))
+data4R$portes[data4R$condition=="CONTROL"] <- "clear"
+data4R$portes[data4R$condition=="TEST"] <- "blue"
+
+
+
+data4R$choice_type <- data4R$choice
+data4R$choice_type[data4R$choice_pos<0 & abs(data4R$choice)<99] <- "Repeat"
+data4R$choice_type[data4R$choice>99] <- "Miss"
+data4R$choice_type[data4R$choice_pos>0 & abs(data4R$choice)<99] <- "Correct"
+data4R$choice_type <- as.factor(data4R$choice_type)
+
+data4R <- na.omit(data4R) # remove remaining NA
+
+
+# Format data-
+# here we want to look at variance in choices - in successive choices
+
+data4R$choiceA <- abs(data4R$choice)
+data4R$choiceA[data4R$choiceA>30] = data4R$choiceA[data4R$choiceA>30]/100 
+data4R$choiceB <- c(data4R$choiceA[c(2:length(data4R$choiceA))],NA) 
+
+data4R$choicevar <- data4R$choiceB - data4R$choiceA
+
+# Single monkey specifics
+
+OSCAR <- subset(data4R,data4R$singe=='Oscar')
+VIOLETTE <- subset(data4R,data4R$singe=='Violette')
+
+
+
+for (i in session_type$Session[session_type$singe=="Oscar" ]){
+OSCAR$Injection[OSCAR$session==i] <- session_type$Injection[session_type$singe=="Oscar" & session_type$Session==i]
+OSCAR$portes[OSCAR$session==i] <- session_type$portes[session_type$singe=="Oscar" & session_type$Session==i]
+}
+
+for (i in session_type$Session[session_type$singe=="Violette" ]){
+VIOLETTE$Injection[VIOLETTE$session==i] <- session_type$Injection[session_type$singe=="Violette" & session_type$Session==i]
+VIOLETTE$portes[VIOLETTE$session==i] <- session_type$portes[session_type$singe=="Violette" & session_type$Session==i]
+}
+
+#for (i in session_type$Session[session_type$singe=="Yuri" ]){
+#YURI$Injection[YURI$session==i] <- session_type$Injection[session_type$singe=="Yuri" & session_type$Session==i]
+#YURI$portes[YURI$session==i] <- session_type$portes[session_type$singe=="Yuri" & session_type$Session==i]
+#}
+
+OSCAR$Injection <- as.factor(OSCAR$Injection)
+VIOLETTE$Injection <- as.factor(VIOLETTE$Injection)
+#YURI$Injection <- as.factor(YURI$Injection)
+
+OSCAR$portes <- factor(OSCAR$portes, levels = c("clear", "blue"))
+VIOLETTE$portes <- factor(VIOLETTE$portes, levels = c("clear", "blue"))
+#YURI$portes <- factor(YURI$portes, levels = c("clear", "blue"))
+
+```
+
+# Main general Plots
+
+Let first see descriptive graphs for all sessions per monkey. The figures show for each monkey the choices (location of choice on board) selected by the animal trial by trial (chronological order from left to right). Green dots represent correct choices i.e. location chosen for the 1st time in session and with correct pick up of the reward. Blue dots represent returns to previously chosen location. These are presented as negative values to show their time course independently for correct choices.
+Orange is when reward is missed. 
+Clear (transparent doors) and Blue (blue doors) sessions are presented separately 
+First sample sessions:
+
+
+```{r samples, echo=FALSE,message=FALSE, fig.cap="General figure HOMER",fig.align="center", warning=FALSE,fig.width=15, fig.height=8}
+
+os.session = 33
+# OSCAR---
+os <-ggplot(subset(OSCAR,OSCAR$choice_pos>0 & OSCAR$choice<99 & session==os.session), aes(x=trial_nb,y=choice, color="Choice"))+
+  geom_point()+  geom_smooth(method='lm',colour='dimgray') +  geom_line()+
+  scale_colour_discrete(name = "Choices", labels = c("Repeat", "choice"))+
+  geom_line(data=subset(OSCAR,OSCAR$choice_pos<0 & abs(OSCAR$choice)<99 & session==os.session),aes(x = trial_nb,y=choice),colour='dodgerblue1', alpha=.5)+
+  geom_smooth(data=subset(OSCAR,OSCAR$choice_pos<0 & abs(OSCAR$choice)<99 & session==os.session),method='lm', se=FALSE,colour='dodgerblue1')+
+  geom_point(data=subset(OSCAR,OSCAR$choice_pos<0 & abs(OSCAR$choice)<99 & session==os.session),aes(x = trial_nb,y=choice,color="Repeat"))+
+  geom_point(data=subset(OSCAR, OSCAR$choice>90 & session==os.session),aes(x = trial_nb, y=choice/100, color="Miss"))+
+  geom_hline(yintercept=0)+
+  labs(x = "trial in session",
+       y = "target chosen",
+       color = "Legend")+
+  scale_colour_manual(values=c("chartreuse3","chocolate","dodgerblue1"))+
+  facet_grid(condition ~ .)+
+  ggtitle(paste0("OSCAR sample session #",os.session))
+
+vi.session = 29
+
+vi <-ggplot(subset(VIOLETTE,VIOLETTE$choice_pos>0 & VIOLETTE$choice<99 & session==vi.session), aes(x=trial_nb,y=choice, color="Choice"))+
+  geom_point()+  geom_smooth(method='lm',colour='dimgray') +  geom_line()+
+  scale_colour_discrete(name = "Choices", labels = c("Repeat", "choice"))+
+  geom_line(data=subset(VIOLETTE,VIOLETTE$choice_pos<0 & abs(VIOLETTE$choice)<99 & session==vi.session),aes(x = trial_nb,y=choice),colour='dodgerblue1', alpha=.5)+
+  geom_smooth(data=subset(VIOLETTE,VIOLETTE$choice_pos<0 & abs(VIOLETTE$choice)<99 & session==vi.session),method='lm', se=FALSE,colour='dodgerblue1')+
+  geom_point(data=subset(VIOLETTE,VIOLETTE$choice_pos<0 & abs(VIOLETTE$choice)<99 & session==vi.session),aes(x = trial_nb,y=choice,color="Repeat"))+
+  geom_point(data=subset(VIOLETTE, VIOLETTE$choice>90 & session==vi.session),aes(x = trial_nb, y=choice/100, color="Miss"))+
+  geom_hline(yintercept=0)+
+  labs(x = "trial in session",
+       y = "target chosen",
+       color = "Legend")+
+  scale_colour_manual(values=c("chartreuse3","chocolate","dodgerblue1"))+
+  facet_grid(condition ~ .)+
+  ggtitle(paste0("VIOLETTE sample session #",vi.session))
+
+ 
+ grid.arrange(os,vi,ncol=2)
+ 
+# YURI excluded for the current analysis for DREADDPath
+# yu.session = 3
+# ggplot(subset(YURI,YURI$choice_pos>0 & YURI$choice<99 & session==yu.session), aes(x=trial_nb,y=choice, color="Choice"))+
+#   geom_point()+  geom_smooth(method='lm',colour='dimgray') +  geom_line()+
+#   scale_colour_discrete(name = "Choices", labels = c("Repeat", "Choice"))+
+#   geom_line(data=subset(YURI,YURI$choice_pos<0 & abs(YURI$choice)<99 & session==yu.session),aes(x = trial_nb,y=choice),colour='dodgerblue1', alpha=.5)+
+#   geom_smooth(data=subset(YURI,YURI$choice_pos<0 & abs(YURI$choice)<99 & session==yu.session),method='lm', se=FALSE,colour='dodgerblue1')+
+#   geom_point(data=subset(YURI,YURI$choice_pos<0 & abs(YURI$choice)<99 & session==yu.session),aes(x = trial_nb,y=choice,color="Repeat"))+
+#  geom_point(data=subset(YURI, YURI$choice>90 & session==yu.session),aes(x = trial_nb, y=choice/100, color="Miss"))+
+#   geom_hline(yintercept=0)+
+#   labs(x = "trial in session",
+#        y = "target chosen",
+#        color = "Legend")+
+#   scale_colour_manual(values=c("chartreuse3","chocolate","dodgerblue1"))+
+#   facet_grid(condition ~ .)+
+#   ggtitle(paste0("YURI sample session #",yu.session))
+
+ 
+
+```
+
+```{r general, echo=FALSE,message=FALSE, fig.cap="General figure ", warning=FALSE,fig.width=15, fig.height=8}
+
+ggplot(subset(OSCAR,OSCAR$choice_pos>0 & OSCAR$choice<100), aes(x=trial_nb,y=choice, color="Choice"))+
+  geom_point()+  geom_smooth(method='lm',colour='dimgray') +  geom_line()+
+  scale_colour_discrete(name = "Choices", labels = c("Repeat", "choice"))+
+  geom_line(data=subset(OSCAR,OSCAR$choice_pos<0 & abs(OSCAR$choice)<99),aes(x = trial_nb,y=choice),colour='dodgerblue1', alpha=.5)+
+  geom_smooth(data=subset(OSCAR,OSCAR$choice_pos<0 & abs(OSCAR$choice)<99),method='lm', se=FALSE,colour='dodgerblue1')+
+  geom_point(data=subset(OSCAR,OSCAR$choice_pos<0 & abs(OSCAR$choice)<99),aes(x = trial_nb,y=choice,color="Repeat"))+
+  geom_point(data=subset(OSCAR, OSCAR$choice>90),aes(x = trial_nb, y=choice/100, color="Miss"))+
+  geom_hline(yintercept=0)+
+  labs(x = "trial in session",
+       y = "target chosen",
+       color = "Legend")+
+  scale_colour_manual(values=c("chartreuse3","chocolate","dodgerblue1"))+
+  facet_grid(portes ~ .)+
+  ggtitle("OSCAR ALL sessions together")
+
+
+
+
+ggplot(subset(VIOLETTE,VIOLETTE$choice_pos>0 & VIOLETTE$choice<99), aes(x=trial_nb,y=choice, color="Choice"))+
+  geom_point()+  geom_smooth(method='lm',colour='dimgray') +  geom_line()+
+  scale_colour_discrete(name = "Choices", labels = c("Repeat", "choice"))+
+  geom_line(data=subset(VIOLETTE,VIOLETTE$choice_pos<0 & abs(VIOLETTE$choice)<99),aes(x = trial_nb,y=choice),colour='dodgerblue1', alpha=.5)+
+  geom_smooth(data=subset(VIOLETTE,VIOLETTE$choice_pos<0 & abs(VIOLETTE$choice)<99),method='lm', se=FALSE,colour='dodgerblue1')+
+  geom_point(data=subset(VIOLETTE,VIOLETTE$choice_pos<0 & abs(VIOLETTE$choice)<99),aes(x = trial_nb,y=choice,color="Repeat"))+
+  geom_point(data=subset(VIOLETTE, VIOLETTE$choice>90),aes(x = trial_nb, y=choice/100, color="Miss"))+
+  geom_hline(yintercept=0)+
+  labs(x = "trial in session",
+       y = "target chosen",
+       color = "Legend")+
+  scale_colour_manual(values=c("chartreuse3","chocolate","dodgerblue1"))+
+  facet_grid(portes ~ .)+
+  ggtitle("VIOLETTE sessions")
+
+```
+## Summary
+
+The data are then summarized in terms of frequency of each trial (choice) type: Correct, Miss, Repeat.
+
+```{r summary, echo=FALSE,message=FALSE, fig.cap="Summary all trials", warning=FALSE,fig.width=15, fig.height=8}
+# trial types proportion 
+
+ bar1 <- ggplot(OSCAR, aes(x=as.factor(session), fill=choice_type))+
+    geom_bar()+
+    facet_grid(portes~singe)+
+   scale_fill_manual(values=c("chartreuse3","chocolate","dodgerblue1"))+
+  theme(legend.position="bottom",
+        axis.text.y = element_text(color = "grey20", size = 6),
+        axis.text.x = element_text(color = "grey20", size = 6))
+ 
+ bar2 <- ggplot(VIOLETTE, aes(x=as.factor(session), fill=choice_type))+
+   geom_bar()+
+   facet_grid(portes~singe)+
+   scale_fill_manual(values=c("chartreuse3","chocolate","dodgerblue1"))+
+  theme(legend.position="bottom",
+        axis.text.y = element_text(color = "grey20", size = 6),
+        axis.text.x = element_text(color = "grey20", size = 6))
+ 
+ grid.arrange(bar1,bar2,ncol=2)
+```
+
+##Exploration strategies
+
+One thing we can look at is the spatial variance between successive choices (here I do not differentiate Miss, Correct or repeat). 
+
+The figures below show the distributions of euclidean distances between 2 successive choices. The absolute distance between 2 holes (vertically and horizontally is 6.5cm). So we can see harmonics at 6.5 cm approximately in the distributions. 
+ Something quite obvious is that the harmonic is stronger in TEST than in CONTROL. 
+ 
+ Note that here every choice is counted even repeats.
+ 
+ ////////////
+ *ATTENTION: here we will select only sessions that are labelled no, sham or DCZ*
+ ///////////
+
+
+
+
+```{r strat1, echo=FALSE,message=FALSE, warning=FALSE,fig.width=6, fig.height=4}
+
+data4B <- rbind(subset(OSCAR),subset(VIOLETTE))
+
+#data4B <- subset(data4B, trial_nb>1)
+ 
+ data4B$x <- map$x[data4B$choiceA]
+ data4B$y <- map$y[data4B$choiceA]
+ 
+ data4B$dist <- sqrt((map$x[data4B$choiceA]-map$x[data4B$choiceB])^2 + (map$y[data4B$choiceA]-map$y[data4B$choiceB])^2) 
+ 
+ data4B$distloc <- sqrt((map$distx[data4B$choiceA]-map$distx[data4B$choiceB])^2 + (map$disty[data4B$choiceA]-map$disty[data4B$choiceB])^2) # compute euclidian distances
+ 
+OSCAR.var <- subset(data4B,data4B$singe=='Oscar')
+VIOLETTE.var <- subset(data4B,data4B$singe=='Violette')
+ 
+ for (mk in c("Oscar","Violette")){
+ for (i in session_type$Session[session_type$singe==mk ]){
+data4B$Injection[data4B$session==i] <- session_type$Injection[session_type$singe==mk & session_type$Session==i]
+}
+ }
+ data4B$Injection <- as.factor(data4B$Injection)
+ 
+# for (i in session_type$Session[session_type$singe=="Homer" ]){
+# HOMER.var$Injection[HOMER.var$session==i] <- session_type$Injection[session_type$singe=="Homer" & session_type$Session==i]
+# }
+# 
+# for (i in session_type$Session[session_type$singe=="Donut" ]){
+# DONUT.var$Injection[DONUT.var$session==i] <- session_type$Injection[session_type$singe=="Donut" & session_type$Session==i]
+# }
+# 
+# 
+# DONUT.var$Injection <- as.factor(DONUT.var$Injection)
+# DONUT.var$Injection <- as.factor(DONUT.var$Injection)
+#  
+ # GRAPHS
+ 
+  ggplot(data4B,aes(x= distloc, colour=as.factor(session)))+
+    geom_density(alpha=0.5)+
+    facet_grid(singe~portes)+
+    geom_vline(xintercept=0)
+  
+
+  
+```  
+ COMMENTS : The distribution of distances between choices is of a particular form, somewhat LogNormal. 
+  We can look at this distributions depending on conditions and also compare with a random sampling of distances.
+  Let's first look at this accross the 2 monkeys.
+  
+```{r distrib, echo=FALSE,message=FALSE, warning=FALSE,fig.width=4, fig.height=3}
+# we draw the same number of choices (choices 1 to 25) as for Oscar / Violette together
+library(pracma)
+
+#generate a random distribution of distances
+randdistA <- randsample(seq(1,15), 10000)
+randdistB <- randsample(seq(1,15), 10000)
+randdistloc <- sqrt((map$distx[randdistA]-map$distx[randdistB])^2 + (map$disty[randdistA]-map$disty[randdistB])^2)
+randdistloc <- data.frame("distloc"=randdistloc)
+
+
+ggplot(subset(data4B, distloc>0), aes(x=distloc, fill="monkey"))+
+  geom_histogram(position="identity", aes(y = ..density..))+
+  geom_density(alpha=.7)+
+  geom_histogram(data=subset(randdistloc, distloc>0),position="identity", aes(y = ..density.., fill="random"), alpha=.5)+ geom_density(data=subset(randdistloc, distloc>0),position="identity", aes(y = ..density.., fill="random"), alpha=.7)
+
+
+```
+
+ The red shows distributions for monkeys, and blue shows a random sampling of 10000 distances. 
+  
+  Seperated for the 2 animals for Clear and Blue conditions we can see (below) that the distributions and the oscillation effects are stronger on Blue compared to Clear.
+  
+  
+```{r strat1b, echo=FALSE,message=FALSE, fig.cap="Spatial strategy. Distributions of euclidean distances", warning=FALSE,fig.width=6, fig.height=4} 
+  
+  ggplot(data4B, aes(x= portes, y= distloc, fill=portes))+
+  geom_jitter( aes(colour = distloc), width=.3,size = 2, alpha=0.2)+
+  geom_violin(alpha=0.8)+
+    facet_grid(singe~.)+
+    scale_fill_manual(values=c("grey","dodgerblue1"))+
+    labs(x = "condition",
+         y = "Euclidean distance between successive choices (cm)",
+         color = "Legend")
+
+
+
+```
+COMMENTS: 
+We test the difference in distributions between clear and blue for the 2 animals separately - we exclude DCZ sessions:
+  
+```{r KSmirn, echo=FALSE,message=FALSE, warning=FALSE} 
+
+ks.test(data4B$distloc[data4B$singe=="Oscar" & data4B$portes=="clear" & data4B$Injection !="DCZ"], 
+                  data4B$distloc[data4B$singe=="Oscar" & data4B$portes=="blue" & data4B$Injection !="DCZ"])
+
+ks.test(data4B$distloc[data4B$singe=="Violette" & data4B$portes=="clear" & data4B$Injection !="DCZ"], 
+                  data4B$distloc[data4B$singe=="Violette" & data4B$portes=="blue" & data4B$Injection !="DCZ"])
+
+```
+
+COMMENTS : The KS tests indicate a difference between the 2 distributions (Clear and Blue) for both monkeys.
+
+The strength of the 'harmonic' could be a marker of the two strategies used in the different sessions. The heavier harmonics in TEST could reflect an increased number of jumps between distant targets, whereas in CONTROL the animal would be more attracted to the visible reward which is just closeby to the current choice, hence proportionally more cases in which the animal choose the target just next the current one (6.5 cm distance). But we would need more control sessions to be sure. 
+
+
+# Subset of trials
+
+One observation is that monkeys often behave in a somewhat more controlled, organized, manner at the beginning of a session and then choices become more dispersed. This could correlate approximately with the completion of the task (i.e. having gone through all locations).
+So here we seperate the first 25 from the oher trials in 2 subset (25 corresponding to the number of locations on the setup).
+
+Again here we remove DCZ (DCZ is taken into account in statistical analyses below)
+
+```{r varsubset, message=FALSE, warning=FALSE, echo=FALSE}
+  
+data4B.sub <- subset(data4B, trial_nb <= 25)
+data4B.sub.last <- subset(data4B, trial_nb > 25)
+
+```
+
+```{r subset1, echo=FALSE,  fig.height=8, fig.width=8, message=FALSE, warning=FALSE, include=TRUE}
+  
+  
+   ggplot(subset(data4B.sub, choice_pos>0 & choice<100 & Injection != "DCZ"), aes(x=trial_nb,y=choice, color="Choice"))+
+    geom_point()+  geom_smooth(method='lm',colour='dimgray') +  geom_line()+
+    scale_colour_discrete(name = "Choices", labels = c("Repeat", "choice"))+
+    geom_line(data=subset(data4B.sub, choice_pos<0 & abs(choice)<100 & Injection != "DCZ"),aes(x = trial_nb,y=choice),colour='dodgerblue1', alpha=.5)+
+    geom_smooth(data=subset(data4B.sub, choice_pos<0 & abs(choice)<100 & Injection != "DCZ"),method='lm', se=FALSE,colour='dodgerblue1')+
+    geom_point(data=subset(data4B.sub, choice_pos<0 & abs(choice)<100& Injection != "DCZ" ),aes(x = trial_nb,y=choice,color="Repeat"))+
+    geom_point(data=subset(data4B.sub, choice>90& Injection != "DCZ"),aes(x = trial_nb, y=choice/100, color="Miss"))+
+    geom_hline(yintercept=0)+
+    labs(x = "trial in session",
+         y = "target chosen",
+         color = "Legend")+
+    scale_colour_manual(values=c("chartreuse3","chocolate","dodgerblue1"))+
+    facet_grid(singe ~ portes)+
+    ggtitle(" subset (trial<=25) (wthout DCZ)")
+
+  
+   ggplot(subset(data4B.sub.last, choice_pos>0 & choice<100 & Injection != "DCZ"), aes(x=trial_nb,y=choice, color="Choice"))+
+    geom_point()+  geom_smooth(method='lm',colour='dimgray') +  geom_line()+
+    scale_colour_discrete(name = "Choices", labels = c("Repeat", "choice"))+
+    geom_line(data=subset(data4B.sub.last, choice_pos<0 & abs(choice)<100 & Injection != "DCZ"),aes(x = trial_nb,y=choice),colour='dodgerblue1', alpha=.5)+
+    geom_smooth(data=subset(data4B.sub.last, choice_pos<0 & abs(choice)<100 & Injection != "DCZ"),method='lm', se=FALSE,colour='dodgerblue1')+
+    geom_point(data=subset(data4B.sub.last, choice_pos<0 & abs(choice)<100& Injection != "DCZ" ),aes(x = trial_nb,y=choice,color="Repeat"))+
+    geom_point(data=subset(data4B.sub.last, choice>90& Injection != "DCZ"),aes(x = trial_nb, y=choice/100, color="Miss"))+
+    geom_hline(yintercept=0)+
+    labs(x = "trial in session",
+         y = "target chosen",
+         color = "Legend")+
+    scale_colour_manual(values=c("chartreuse3","chocolate","dodgerblue1"))+
+    facet_grid(singe ~ portes)+
+    ggtitle(" subset (trial>25) (wthout DCZ)")
+```  
+
+COMMENT: 
+
+##The summary:
+
+
+  Below the average number of each trial type for the different conditions of injection (here again for the first 25 trials) :
+  
+```{r subset2b, echo=FALSE, fig.cap="Injection type 25 trials",message=FALSE,warning=FALSE,fig.width=12, fig.height=8}  
+data4B.sub$trial <- 1 
+agg.data4B.sub <- aggregate(trial ~ Injection + choice_type+ session + portes+ singe, data=data4B.sub, sum)
+
+data4B.sub.last$trial <- 1 
+agg.data4B.sublast <- aggregate(trial ~ Injection + choice_type+ session + portes+ singe, data=data4B.sub.last, sum)
+
+  
+  
+b25 <- ggplot(subset(agg.data4B.sub, Injection != "DCZ"), aes(x=as.factor(choice_type),y=trial   , fill=choice_type))+
+    geom_bar(position = "dodge", stat = "summary")+
+    facet_grid(singe~portes)+
+    scale_fill_manual(values=c("chartreuse3","chocolate","dodgerblue1"))+
+    ggtitle("25 first trials")+
+    xlab("Choice type") + ylab("Average trial number") +
+    theme(axis.text.x = element_text(color = "grey20", size = 12), 
+       axis.text.y = element_text(color = "grey20", size = 12))+ theme(legend.position = "bottom")
+
+#Problem is in the "theme"
+
+
+a25 <-ggplot(subset(agg.data4B.sublast, Injection != "DCZ"), aes(x=as.factor(choice_type),y=trial   , fill=choice_type))+
+    geom_bar(position = "dodge", stat = "summary")+
+    facet_grid(singe~portes)+
+    scale_fill_manual(values=c("chartreuse3","chocolate","dodgerblue1"))+
+    ggtitle("AFTER 25th trial")+
+   xlab("Choice type") + ylab("Average trial number") +
+  theme(axis.text.x = element_text(color = "grey20", size = 12), 
+       axis.title.y =element_text(color = "grey20", size = 12))+ theme(legend.position = "bottom")
+  
+
+
+grid.arrange(b25,a25,ncol=2)
+```
+##Spatial strategy:
+
+```{r subset3, echo=FALSE,message=FALSE, warning=FALSE,fig.width=5, fig.height=4}
+
+b25 <-  ggplot(subset(data4B.sub,Injection != "DCZ"), aes(x= portes, y= distloc, fill=portes))+
+    geom_violin(alpha=0.5)+
+    facet_grid(singe~.)+
+    scale_fill_manual(values=c("grey","dodgerblue1"))+
+    labs(x = "condition",
+         y = "Euclidean distance between successive choices (cm)",
+         color = "Legend")+
+    ggtitle("Spatial Strategy - 25 first trials")+ theme(legend.position = "bottom")
+
+a25 <-  ggplot(subset(data4B.sub.last,Injection != "DCZ"), aes(x= portes, y= distloc, fill=portes))+
+    geom_violin(alpha=0.5)+
+    facet_grid(singe~.)+
+    scale_fill_manual(values=c("grey","dodgerblue1"))+
+    labs(x = "condition",
+         y = "Euclidean distance between successive choices (cm)",
+         color = "Legend")+
+    ggtitle("Spatial Strategy - 25 first trials")+ theme(legend.position = "bottom")
+
+grid.arrange(b25,a25,ncol=2)
+```
+
+# Spatial organization in 2D space
+
+The tendencies for choosing some locations rather than others can reveal spatial biases. SO we use here a 2D  density mapping of choices to look at that.
+
+
+```{r spatial1, echo=FALSE,message=FALSE, warning=FALSE,fig.width=5, fig.height=5}
+
+  # and spatial density maps of choice / total and in time.
+  
+  
+  ggplot( subset(data4B, Injection!="DCZ")  , aes(x=x, y= y))+
+    stat_density_2d(aes(fill = ..density..), geom = "raster", contour = FALSE)+
+    facet_grid(singe~portes)+
+    scale_fill_distiller(palette= "Spectral", direction=-1) +
+    theme_bw()
+    
+```
+
+```{r spatial2, echo=FALSE,message=FALSE, warning=FALSE,fig.width=12, fig.height=5}
+  ggplot(subset(data4B,singe=='Oscar'| singe=="Violette" ), aes(x=x, y= y))+
+    stat_density_2d(aes(fill = ..density..), geom = "raster", contour = FALSE)+
+    facet_grid(singe~portes*choice_type)+
+    scale_fill_distiller(palette= "Spectral", direction=-1) +
+    theme_bw()
+```
+
+Let's look also at the patterns of choices separating between before and after 25:
+  
+```{r spatial2D, echo=FALSE,message=FALSE, warning=FALSE,fig.width=12, fig.height=5}
+    
+  
+ map1 <-  ggplot( subset(data4B,singe=='Oscar' & trial_nb <= 25 & Injection != "DCZ") , aes(x=x, y= y))+
+    stat_density_2d(aes(fill = ..density..), geom = "raster", contour = FALSE)+
+    facet_grid(singe~portes)+
+   scale_fill_distiller(palette= "Spectral", direction=-1) +
+    theme_bw()+ ggtitle('OSCAR all trials<=25  (wtho DCZ)')+ theme(legend.position = "bottom")
+  
+ map2 <- ggplot(subset(data4B,singe=='Oscar' & trial_nb > 25& Injection != "DCZ" ), aes(x=x, y= y))+
+    stat_density_2d(aes(fill = ..density..), geom = "raster", contour = FALSE)+
+    facet_grid(singe~portes)+
+   scale_fill_distiller(palette= "Spectral", direction=-1) +
+    theme_bw()+ ggtitle('OSCAR all trials >25 (wtho DCZ) ')+ theme(legend.position = "bottom")
+  
+ grid.arrange(map1, map2,ncol=2)
+ 
+ 
+map1 <-  ggplot( subset(data4B,singe=='Violette' & trial_nb <= 25 & Injection != "DCZ" ) , aes(x=x, y= y))+
+   stat_density_2d(aes(fill = ..density..), geom = "raster", contour = FALSE)+
+   facet_grid(singe~portes)+
+   scale_fill_distiller(palette= "Spectral", direction=-1) +
+   theme_bw()+ ggtitle('VIOLETTE all trials<=25  (wtho DCZ)')+ theme(legend.position = "bottom")
+ 
+map2 <- ggplot(subset(data4B,singe=='Violette' & trial_nb > 25 & Injection != "DCZ"), aes(x=x, y= y))+
+   stat_density_2d(aes(fill = ..density..), geom = "raster", contour = FALSE)+
+   facet_grid(singe ~ portes) +
+   scale_fill_distiller(palette= "Spectral", direction=-1) +
+   theme_bw()+ ggtitle('VIOLETTE all trials >25  (wtho DCZ)')+ theme(legend.position = "bottom")
+ 
+ grid.arrange(map1, map2,ncol=2)
+```
+
+# STATISTICAL ANALYSES on DCZ vs Sham sessions
+
+Here are the analyses and desctiption of data for the 2 main types of sessions used on DCZ conditions. We subset the data for just the 2 monkeys and the 2 session types with an injection (sham and DCZ).
+We will also go through some more measures:
+
+- test the numbers of repeats, and length distribution of distance to repeat
+- test the number of pauses (code 99)
+
+```{r subtest, echo=FALSE,message=FALSE, warning=FALSE,fig.width=12, fig.height=8}
+
+data4B <- subset(data4B, Injection=='DCZ'| Injection=="sham")  
+data4B$Injection <- factor( data4B$Injection, levels = c("sham","DCZ"))
+data4B$singe <- factor( data4B$singe, levels = c("Oscar","Violette"))
+data4B$trial <- 1
+
+#display the session stats
+
+add.data <- aggregate( trial  ~ session + Injection + portes + singe, data=data4B, mean)
+
+table(add.data$portes, add.data$Injection, add.data$singe)
+
+
+```
+
+##Descriptions of sessions
+
+Here we answer a few general questions on the sessions, choices, repeats etc..
+
+First, were there more trials (choices+misses+repeats) in DCZ compared to sham sessions?
+
+```{r descrip, echo=FALSE,message=FALSE, fig.cap="Summary 25 trials",warning=FALSE,fig.width=5, fig.height=5}
+agg.data4B <- aggregate(trial ~ Injection + session + portes + singe, data=data4B, sum)
+agg.data4B$Injection <- factor(agg.data4B$Injection, levels = c("sham","DCZ"))
+
+g1 <- ggplot(agg.data4B, aes(x=as.factor(Injection), y=trial   , fill=Injection))+
+    geom_boxplot()+ geom_point(aes(color=Injection))+
+    facet_grid(singe~.)+
+    scale_fill_manual(values=c("grey","chartreuse3","dodgerblue1"))+
+  scale_color_manual(values=c("grey50","chartreuse4","dodgerblue1"))+
+    ggtitle("Total number of trials in sessions")+
+  theme(axis.text.x = element_text(color = "grey20", size = 12))
+
+g2 <- ggplot(agg.data4B, aes(x=as.factor(Injection), y=trial   , fill=Injection))+
+    geom_boxplot()+
+    facet_grid(singe~portes)+
+    scale_fill_manual(values=c("grey","chartreuse3","dodgerblue1"))+
+    ggtitle("Total number of trials in sessions")+
+  theme(axis.text.x = element_text(color = "grey20", size = 12))
+grid.arrange(g1,g2,ncol=2)
+
+os.rial.glm <- glm(trial ~ Injection * portes, family ="poisson", data=subset(agg.data4B,singe=="Oscar"))
+summary(os.rial.glm)
+
+vi.rial.glm <- glm(trial ~ Injection * portes, family ="poisson", data=subset(agg.data4B,singe=="Violette"))
+summary(vi.rial.glm)
+
+maxsession <- aggregate(trial_nb ~ singe + session + condition+ Injection, data= data4B, max)
+
+ggplot(maxsession, aes(trial_nb, colour=Injection))+
+     geom_histogram(aes(fill=Injection), position="dodge")+
+     scale_fill_manual(values=c("grey30", "chartreuse3"))+
+     scale_colour_manual(values=c("grey30", "chartreuse3"))+
+      geom_vline(xintercept=25, colour="red", linetype ="dashed")+
+     facet_grid(condition~singe)+
+     ggtitle("distribution of max number of trials/session - all trials ")+ theme(legend.position="bottom")
+
+ggplot(subset(data4B, trial_nb<50 & choice <100), aes(x=trial_nb, y=session))+
+  geom_tile(aes(fill=choice))+
+  facet_grid(singe~condition*Injection)+
+  scale_fill_gradientn(colours = rainbow(5))
+
+```
+
+COMMENTS: 
+
+Then we ask whether the last correct trial performed is later in DCZ than in sham: this woul dmean that monkeys have more problems, or take more time, to find all or the max of rewards.
+
+```{r maxcor, echo=FALSE, message=FALSE,fig.width=5, fig.height=5}
+
+agg.maxcor <- aggregate(trial_nb ~ singe + session + Injection + portes, data = subset(data4B, choice_type=="Correct"), max)
+agg.maxcor$Injection <- factor(agg.maxcor$Injection, levels = c( "sham","DCZ"))
+
+ggplot(agg.maxcor, aes(y=trial_nb, fill=Injection))+
+  geom_boxplot()+
+    facet_wrap(singe~portes, scales = "free")+
+    scale_fill_manual(values=c("grey","chartreuse3","dodgerblue1"))+
+    ggtitle("Last correct trial in sessions")+
+  theme(axis.text.x = element_text(color = "grey20", size = 12))
+
+os.maxcor.glm <- glm(trial_nb ~ Injection * portes, family ="poisson", data=subset(agg.maxcor,singe=="Oscar"))
+summary(os.maxcor.glm)
+
+vi.maxcor.glm <- glm(trial_nb ~ Injection * portes, family ="poisson", data=subset(agg.maxcor,singe=="Violette"))
+summary(vi.maxcor.glm)
+
+```
+COMMENTS: 
+
+
+```{r maxrpt, echo=FALSE, message=FALSE,fig.width=3, fig.height=3}
+
+agg.maxrpt <- aggregate(trial_nb ~ singe + session + Injection , data = subset(data4B, choice_type=="Repeat" & portes=="blue"), max)
+agg.maxrpt$Injection <- factor(agg.maxrpt$Injection, levels = c("sham","DCZ"))
+
+ggplot(agg.maxrpt, aes(y=trial_nb, fill=Injection))+
+  geom_boxplot()+
+    facet_wrap(singe~., scales = "free")+
+    scale_fill_manual(values=c("grey","chartreuse3","dodgerblue1"))+
+    ggtitle("Last Repeat trial in sessions - only 'blue' sessions")+
+  theme(axis.text.x = element_text(color = "grey20", size = 10))
+
+os.maxrpt.glm <- glm(trial_nb ~ Injection , family ="poisson", data=subset(agg.maxrpt,singe=="Oscar"))
+summary(os.maxrpt.glm)
+
+vi.maxrpt.glm <- glm(trial_nb ~ Injection , family ="poisson", data=subset(agg.maxrpt,singe=="Violette"))
+summary(vi.maxrpt.glm)
+
+```
+
+COMMENTS: There are changes regarding repeats but these are different for the 2 monkeys.
+
+Let's test statistically the data for All trials, for <25 trials and for >25 trials:
+
+
+```{r distribRepeat, echo=FALSE,message=FALSE, fig.cap="Summary 25 trials",warning=FALSE,fig.width=10, fig.height=5}
+g1 <- ggplot(subset(data4B, choice_pos>0 & choice<100), aes(trial_nb, colour=Injection))+
+     geom_histogram(aes(fill=Injection), position="dodge")+
+     scale_fill_manual(values=c("grey30", "chartreuse3"))+
+     scale_colour_manual(values=c("grey30", "chartreuse3"))+
+      geom_vline(xintercept=25, colour="red", linetype ="dashed")+
+     facet_grid(portes~singe)+
+     ggtitle("distribution of Correct choice in sessions - All trials ")+ theme(legend.position="bottom")
+
+
+g2 <- ggplot(subset(data4B, choice_pos<0), aes(trial_nb, colour=Injection))+
+     geom_histogram(aes(fill=Injection), position="dodge")+
+     scale_fill_manual(values=c("grey30", "chartreuse3"))+
+     scale_colour_manual(values=c("grey30", "chartreuse3"))+
+      geom_vline(xintercept=25, colour="red", linetype ="dashed")+
+     facet_grid(portes~singe)+
+     ggtitle("distribution of repeats in sessions - All trials ")+ theme(legend.position="bottom")
+
+grid.arrange(g1,g2, ncol=2)
+
+g1 <- ggplot(subset(data4B, choice_pos>0 & choice<100), aes(trial_nb, colour=Injection))+
+     geom_density(aes(fill=Injection), alpha=0.6, adjust=1/2)+
+     scale_fill_manual(values=c("grey30", "chartreuse3"))+
+     scale_colour_manual(values=c("grey30", "chartreuse3"))+
+      geom_vline(xintercept=25, colour="red", linetype ="dashed")+
+     facet_grid(portes~singe)+
+     ggtitle("distribution of Correct choice in sessions - All trials ")+ theme(legend.position="bottom")
+
+
+g2 <- ggplot(subset(data4B, choice_pos<0), aes(trial_nb, colour=Injection))+
+     geom_density(aes(fill=Injection), alpha=0.6, adjust=1/2)+
+     scale_fill_manual(values=c("grey30", "chartreuse3"))+
+     scale_colour_manual(values=c("grey30", "chartreuse3"))+
+      geom_vline(xintercept=25, colour="red", linetype ="dashed")+
+     facet_grid(portes~singe)+
+     ggtitle("distribution of repeats in sessions - All trials ")+ theme(legend.position="bottom")
+
+grid.arrange(g1,g2, ncol=2)
+
+```
+
+COMMENTS: 
+
+##Trial types:
+
+First let's look at the frequency of repeats, miss, etc...
+
+
+```{r counts, echo=FALSE,message=FALSE, fig.cap="Summary 25 trials",warning=FALSE,fig.width=15, fig.height=8}
+
+agg.data4B <- aggregate(trial ~ Injection + choice_type + session + portes + singe, data=data4B, sum)
+
+agg.data4B$Injection <- factor(agg.data4B$Injection, levels = c("sham","DCZ"))
+
+
+ggplot(agg.data4B, aes(x=as.factor(Injection), y=trial   , fill=choice_type))+
+    geom_bar(position = "dodge", stat = "summary")+
+    facet_grid(singe~portes)+
+    scale_fill_manual(values=c("chartreuse3","chocolate","dodgerblue1"))+
+    ggtitle("All trials")+
+  theme(axis.text.x = element_text(color = "grey20", size = 12))
+  
+ggplot(agg.data4B, aes(x=as.factor(Injection), y=trial   , fill=choice_type))+
+    geom_boxplot()+
+    facet_grid(singe~portes)+
+    scale_fill_manual(values=c("chartreuse3","chocolate","dodgerblue1"))+
+    ggtitle("All trials")+
+  theme(axis.text.x = element_text(color = "grey20", size = 12))
+
+ggplot(agg.data4B, aes(x=as.factor(choice_type), y=trial   , fill=Injection))+
+    geom_boxplot()+
+    facet_grid(singe~portes)+
+    scale_fill_manual(values=c("grey","chartreuse3","dodgerblue1"))+
+    ggtitle("All trials")+
+  theme(axis.text.x = element_text(color = "grey20", size = 12))
+  
+
+osc.chtype.glm <- glm(trial ~ Injection * choice_type , family = "poisson", data=subset(agg.data4B, singe=="Oscar" & choice_type != "Correct"))
+summary(osc.chtype.glm)
+
+vio.chtype.glm <- glm(trial ~ Injection * choice_type , family = "poisson", data=subset(agg.data4B, singe=="Violette" & choice_type != "Correct"))
+summary(vio.chtype.glm)
+  
+```
+
+COMMENTS: 
+
+###stats 25 trials  
+
+Same analysis for the first 25 trials
+
+```{r counts, echo=FALSE,message=FALSE, fig.cap="Summary 25 trials",warning=FALSE,fig.width=15, fig.height=8}
+data4B.sub <- subset(data4B.sub, Injection=='DCZ'| Injection=="sham")  
+agg.data4B.sub <- aggregate(trial ~ Injection + choice_type + session + portes + singe, data=data4B.sub, sum)
+
+agg.data4B.sub$Injection <- factor(agg.data4B.sub$Injection, levels = c("sham","DCZ"))
+
+
+ggplot(agg.data4B.sub, aes(x=as.factor(Injection), y=trial   , fill=choice_type))+
+    geom_bar(position = "dodge", stat = "summary")+
+    facet_grid(singe~portes)+
+    scale_fill_manual(values=c("chartreuse3","chocolate","dodgerblue1"))+
+    ggtitle("First 25 trials")+
+  theme(axis.text.x = element_text(color = "grey20", size = 12))
+  
+
+ggplot(agg.data4B.sub, aes(x=as.factor(choice_type), y=trial   , fill=Injection))+
+    geom_boxplot()+
+    facet_grid(singe~portes)+
+    scale_fill_manual(values=c("grey","chartreuse3","dodgerblue1"))+
+    ggtitle("First 25 trials")+
+  theme(axis.text.x = element_text(color = "grey20", size = 12))
+  
+
+osc.chtype.glm <- glm(trial ~ Injection * choice_type , family = "poisson", data=subset(agg.data4B.sub, singe=="Oscar" & choice_type != "Correct"))
+summary(osc.chtype.glm)
+
+vio.chtype.glm <- glm(trial ~ Injection * choice_type , family = "poisson", data=subset(agg.data4B.sub, singe=="Violette" & choice_type != "Correct"))
+summary(vio.chtype.glm)
+
+
+#Presentation fig CW
+
+g1 <- ggplot(subset(agg.data4B.sub, singe=="Violette" & portes != "clear"), aes(x=as.factor(choice_type), y=trial   , fill=Injection))+
+    geom_boxplot()+
+    scale_fill_manual(values=c("grey","chartreuse3"), labels = c("Vehicle", "DCZ"))+
+    #ggtitle("First 25 trials")+
+  theme(axis.text.x = element_text(color = "grey20") , axis.title.x = element_blank()) +
+  theme(text = element_text(size = 20))   
+
+g2 <- ggplot(subset(agg.data4B.sub, singe=="Oscar" & portes != "clear"), aes(x=as.factor(choice_type), y=trial   , fill=Injection))+
+    geom_boxplot()+
+    scale_fill_manual(values=c("grey","chartreuse3"),labels = c("Vehicle", "DCZ"))+
+    #ggtitle("First 25 trials")+
+  theme(axis.text.x = element_text(color = "grey20"), axis.title.x = element_blank()) +
+  theme(text = element_text(size = 20)) 
+
+  
+grid.arrange(g1,g2, ncol=2)
+
+
+  
+```
+COMMENTS:
+
+###stats AFTER 25 trials  
+
+Same analysis for the first 25 trials
+
+```{r counts, echo=FALSE,message=FALSE, fig.cap="Summary 25 trials",warning=FALSE,fig.width=15, fig.height=8}
+data4B.sub.last <- subset(data4B.sub.last, Injection=='DCZ'| Injection=="sham")  
+agg.data4B.sub.last <- aggregate(trial ~ Injection + choice_type + session + portes + singe, data=data4B.sub.last, sum)
+
+agg.data4B.sub.last$Injection <- factor(agg.data4B.sub.last$Injection, levels = c("sham","DCZ"))
+
+
+ggplot(agg.data4B.sub.last, aes(x=as.factor(Injection), y=trial   , fill=choice_type))+
+    geom_bar(position = "dodge", stat = "summary")+
+    facet_grid(singe~portes)+
+    scale_fill_manual(values=c("chartreuse3","chocolate","dodgerblue1"))+
+    ggtitle("After 25 trials")+
+  theme(axis.text.x = element_text(color = "grey20", size = 12))
+  
+
+ggplot(agg.data4B.sub.last, aes(x=as.factor(choice_type), y=trial   , fill=Injection))+
+    geom_boxplot()+
+    facet_grid(singe~portes)+
+    scale_fill_manual(values=c("grey","chartreuse3","dodgerblue1"))+
+    ggtitle("After 25 trials")+
+  theme(axis.text.x = element_text(color = "grey20", size = 12))
+  
+
+osc.chtype.glm <- glm(trial ~ Injection * choice_type , family = "poisson", data=subset(agg.data4B.sub.last, singe=="Oscar" & choice_type != "Correct" & portes != "clear"))
+summary(osc.chtype.glm)
+
+vio.chtype.glm <- glm(trial ~ Injection * choice_type , family = "poisson", data=subset(agg.data4B.sub.last, singe=="Violette" & choice_type != "Correct" & portes != "clear"))
+summary(vio.chtype.glm)
+
+osc.rep.glm <- glm(trial ~ Injection , family = "poisson", data=subset(agg.data4B.sub.last, singe=="Oscar" & choice_type == "Repeat" & portes != "clear"))
+summary(osc.chtype.glm)
+
+vio.rep.glm <- glm(trial ~ Injection , family = "poisson", data=subset(agg.data4B.sub.last, singe=="Violette" & choice_type == "Repeat" & portes != "clear"))
+summary(vio.chtype.glm)
+  
+```
+
+COMMENTS: 
+
+#########################################CLEMENCE STOP HERE TO COPIE COLLE ET CHANGE LES NOMS DES SINGES####################################################################
+
+###stats spatial strategy
+```{r DCZviolin, echo=FALSE,message=FALSE, warning=FALSE,fig.width=5, fig.height=5}
+ ggplot(subset(data4B, Injection!= "no"), aes(x= Injection, y= distloc, fill=Injection))+
+    geom_violin(alpha=0.8)+
+    facet_grid(singe~portes)+
+    scale_fill_manual(values=c("grey30","chartreuse3"))+
+    labs(x = "condition",
+         y = "Euclidean distance between successive choices (cm)",
+         color = "Legend")
+
+```
+
+
+```{r KSmirnDistloc, echo=FALSE,message=FALSE, warning=FALSE} 
+
+##- test for Homer
+
+ks.test(data4B$distloc[data4B$singe=="Homer" & data4B$portes=="clear" & data4B$Injection =="DCZ"], 
+                  data4B$distloc[data4B$singe=="Homer" & data4B$portes=="clear" & data4B$Injection =="sham"])
+ks.test(data4B$distloc[data4B$singe=="Homer" & data4B$portes=="blue" & data4B$Injection =="DCZ"], 
+                  data4B$distloc[data4B$singe=="Homer" & data4B$portes=="blue" & data4B$Injection =="sham"])
+
+##- test for Donut
+ks.test(data4B$distloc[data4B$singe=="Donut" & data4B$portes=="clear" & data4B$Injection =="DCZ"], 
+                  data4B$distloc[data4B$singe=="Donut" & data4B$portes=="clear" & data4B$Injection =="sham"])
+ks.test(data4B$distloc[data4B$singe=="Donut" & data4B$portes=="blue" & data4B$Injection =="DCZ"], 
+                  data4B$distloc[data4B$singe=="Donut" & data4B$portes=="blue" & data4B$Injection =="sham"])
+
+```
+
+There is *no* difference in distribution of distances between sham and DCZ.
+
+
+###distance to repeat
+
+```{r dist2rep, echo=FALSE,message=FALSE, warning=FALSE,fig.width=9, fig.height=5}
+
+# here we will compute the distance to repeat, i.e. how many trials seperate a repeat from the initial choice
+# we have to go session par session
+
+mky <- c("Homer","Donut")
+
+stats.repeat <- data.frame("d2rpt"=NA,"singe"=NA,"session"=NA, "Injection"=NA, "portes"=NA, "nbtrial"=NA, "repeatnb"=NA)
+d2rpt <- numeric()
+
+# Loop to extract distances between choice and repeats
+for (mk in mky){
+  vsession <- unique(data4B$session[data4B$singe == mk])
+  for (ss in vsession){
+  
+    chx <- data4B$choice[data4B$singe == mk & data4B$session==ss] # vector of choice in that session
+    chx <- chx[chx<99] # we exclude the missed trials here // plan to have both measures
+    rept <- chx[chx<0] # repeats
+  
+    if(length(rept)>0){
+      for (rp in rept){
+     
+        d2rpt <- c(d2rpt, match(rp,chx) - match(abs(rp),chx) )
+      } 
+    }else{
+      d2rpt=0
+    }
+  
+    temp <- data.frame("d2rpt" = d2rpt)
+    temp$singe <-mk
+    temp$session <- ss
+    temp$Injection <- unique(data4B$Injection[data4B$singe == mk & data4B$session==ss])
+     temp$portes <- unique(data4B$portes[data4B$singe == mk & data4B$session==ss])
+    temp$nbtrial <-  length(chx)
+    temp$repeatnb <-  length(rept)  
+
+     stats.repeat <- rbind(stats.repeat,temp )
+  d2rpt <- numeric()
+  }
+}
+    
+
+stats.repeat <- na.omit(stats.repeat)
+stats.repeat$Injection <- factor(stats.repeat$Injection, levels = c("sham","DCZ"))
+stats.repeat$portes <- factor(stats.repeat$portes, levels = c("clear","blue"))
+
+ggplot(stats.repeat, aes(x=d2rpt,color=Injection))+
+  geom_density(aes(fill=Injection),size=1, alpha=.5)+
+  facet_grid(.~singe)+
+     scale_color_manual(values=c("grey40","chartreuse3","dodgerblue1"))+
+     scale_fill_manual(values=c("grey40","chartreuse3","dodgerblue1"))+
+  ggtitle('distance between a choice and its repetition')
+
+ggplot(stats.repeat, aes(x=d2rpt,color=Injection))+
+  geom_density(aes(fill=Injection),size=1, alpha=.6)+
+  facet_grid(portes~singe)+
+     scale_color_manual(values=c("grey40","chartreuse3","dodgerblue1"))+
+     scale_fill_manual(values=c("grey40","chartreuse3","dodgerblue1"))+
+    ggtitle('distance between a choice and its repetition')
+
+
+  
+hom.d2rpt.glm <- glm(d2rpt ~ Injection * portes, family = "poisson", data=subset(stats.repeat, singe=="Homer"))
+summary(hom.d2rpt.glm)
+
+Don.d2rpt.glm <- glm(d2rpt ~ Injection * portes, family = "poisson", data=subset(stats.repeat, singe=="Donut"))
+summary(Don.d2rpt.glm)
+
+d <- stats.repeat
+d$BV <- interaction(d$Injection, d$portes)
+
+# GLM fit and library multcopare functions
+m1  <- glm(d2rpt ~ -1 + BV, data = subset(d, singe=="Homer"), family = "poisson")
+summary(glht(m1, linfct = mcp(BV = "Tukey")))
+
+
+m2  <- glm(d2rpt ~ -1 + BV, data = subset(d, singe=="Donut"), family = "poisson")
+summary(glht(m2, linfct = mcp(BV = "Tukey")))
+```
+
+Regarding distances between a choice and a repeat, DCZ effects are absent in Donut but present in Homer. For Homer, the distances are longer under DCZ in blue conditions but much shorter in DCZ than sham in clear conditions.
+
+
+
+##2D choices
+
+
+```{r spatial2DCZ, echo=FALSE,message=FALSE, warning=FALSE,fig.width=12, fig.height=5}
+
+  
+ggplot(subset(data4B,singe=='Homer' & Injection!= "no"), aes(x=x, y= y))+
+    stat_density_2d(aes(fill = ..density..), geom = "raster", contour = FALSE)+
+    facet_grid(Injection~portes*choice_type)+
+    scale_fill_distiller(palette= "Spectral", direction=-1) +
+    theme_bw()+
+      ggtitle("HOMER")
+    
+ggplot(subset(data4B,singe=='Donut' & Injection!= "no" ), aes(x=x, y= y))+
+    stat_density_2d(aes(fill = ..density..), geom = "raster", contour = FALSE)+
+    facet_grid(Injection~portes*choice_type)+
+    scale_fill_distiller(palette= "Spectral", direction=-1) +
+    theme_bw()+
+      ggtitle("DONUT")
+``` 
+
+
+
